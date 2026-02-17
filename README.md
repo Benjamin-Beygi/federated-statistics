@@ -238,7 +238,7 @@ MIT License
 
 ## Author
 
-Mohsen --- Federated Clinical Statistics Infrastructure Project
+Benjamin --- Federated Clinical Statistics Infrastructure Project
 
 ------------------------------------------------------------------------
 
