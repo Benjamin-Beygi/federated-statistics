@@ -1,0 +1,25 @@
+# R / RStudio
+.Rhistory
+.RData
+.Ruserdata
+.Rproj.user/
+
+# macOS
+.DS_Store
+
+# Outputs
+*.html
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.rds
+*.Rds
+
+# Logs
+*.log
+
+# Private / secrets (if you add later)
+.env
+*.key
+*.pem
