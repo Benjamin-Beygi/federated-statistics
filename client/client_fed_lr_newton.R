@@ -1,86 +1,61 @@
 # client/client_fed_lr_newton.R
-# Federated Logistic Regression via Newton-Raphson / IRLS
-# Client sends beta -> servers return gradient/Hessian -> client updates beta
+# Federated Logistic Regression using dynamic server factory
 
-# ---- Start "servers" (in real life these would be remote calls) ----
-source(file.path("server", "server_A.R"))
-source(file.path("server", "server_B.R"))
+# ---- Load engine ----
+source(file.path("client", "fed_engine.R"))
 
-cat("Client connected to Server A and Server B.\n")
+# ---- Load server factory ----
+source(file.path("server", "server_factory.R"))
 
-# ---- Specify the model (must be same on both servers) ----
+cat("Client starting servers via factory...\n")
+
+# ---- Create servers dynamically from data files ----
+servers <- list(
+  create_server(file.path("server", "data", "site_A.csv")),
+  create_server(file.path("server", "data", "site_B.csv"))
+)
+
+cat("Number of servers:", length(servers), "\n")
+
+# ---- Specify model ----
 formula <- y ~ age + sex + x1 + x2
 
-# ---- Ensure both servers have identical term ordering ----
-termsA <- serverA_termnames(formula)
-termsB <- serverB_termnames(formula)
-
-stopifnot(identical(termsA, termsB))
-termnames <- termsA
-
-p <- length(termnames)
-beta <- rep(0, p)  # initialize at zero
-
-cat("\n=============================\n")
-cat("Federated Logistic Regression (Newton/IRLS)\n")
-cat("=============================\n")
-cat("Terms:\n")
-print(termnames)
-
-# ---- Newton loop settings ----
-max_iter <- 30
-tol      <- 1e-6
-ridge    <- 1e-8     # stabilizer for near-singular Hessian
-verbose  <- TRUE
-
-for (iter in 1:max_iter) {
-  
-  # Ask each server for local grad/Hess at current beta
-  resA <- serverA_grad_hess(formula, beta)
-  resB <- serverB_grad_hess(formula, beta)
-  
-  # Aggregate (federated sum)
-  grad <- resA$grad + resB$grad
-  hess <- resA$hess + resB$hess
-  ll   <- resA$ll   + resB$ll
-  nTot <- resA$n    + resB$n
-  
-  # Ridge stabilize Hessian: H - ridge*I (remember H is negative definite)
-  H_stab <- hess - diag(ridge, p)
-  
-  # Newton step: beta_new = beta - solve(H) %*% grad
-  step <- as.vector(solve(H_stab, grad))
-  beta_new <- beta - step
-  
-  # Convergence diagnostics
-  step_norm <- sqrt(sum((beta_new - beta)^2))
-  grad_norm <- sqrt(sum(grad^2))
-  
-  if (verbose) {
-    cat(sprintf(
-      "Iter %02d | n=%d | ll=%.3f | step_norm=%.6g | grad_norm=%.6g\n",
-      iter, nTot, ll, step_norm, grad_norm
-    ))
-  }
-  
-  beta <- beta_new
-  
-  if (step_norm < tol) {
-    cat("Converged.\n")
-    break
-  }
+# ---- Safety check: identical term ordering ----
+terms1 <- servers[[1]]$termnames(formula)
+for (i in 2:length(servers)) {
+  stopifnot(identical(terms1, servers[[i]]$termnames(formula)))
 }
 
-# ---- Output ----
-names(beta) <- termnames
-cat("\nFinal federated beta:\n")
-print(beta)
+# ---- Run federated Newton ----
+fit_fed <- fed_logistic_newton(
+  formula = formula,
+  servers = servers,
+  max_iter = 30,
+  tol = 1e-6,
+  ridge = 1e-8,
+  verbose = TRUE
+)
 
-cat("\nOdds ratios:\n")
-print(exp(beta))
+beta <- fit_fed$coefficients
+se   <- fit_fed$se
 
-# ---- Optional: Compare to pooled glm for sanity check (client DOES NOT need raw data in real life)
-# Here we do it only locally as a correctness test.
+zval <- beta / se
+pval <- 2 * (1 - pnorm(abs(zval)))
+
+results <- data.frame(
+  Estimate = beta,
+  StdError = se,
+  z = zval,
+  p = pval,
+  OR = exp(beta),
+  CI_lower = exp(beta - 1.96 * se),
+  CI_upper = exp(beta + 1.96 * se)
+)
+
+cat("\nFederated GLM Results:\n")
+print(round(results, 6))
+
+# ---- Optional pooled check (LOCAL ONLY) ----
 df_all <- read.csv(file.path("server", "data", "demo_dataset.csv"))
 fit_pool <- glm(formula, data = df_all, family = binomial)
 

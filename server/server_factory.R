@@ -1,38 +1,55 @@
 # server/server_factory.R
 
-make_server <- function(site_csv_path) {
-  # Load site-specific data (server keeps raw data private)
-  df_site <- read.csv(site_csv_path)
+# Load helper functions (relative to /server)
+source("server_fed_lr_functions.R")
+
+create_server <- function(data_path,
+                          min_n = 20,
+                          min_cell = 5) {
   
-  # ---- server-side functions (API) ----
-  server_summary <- function(var) {
-    if (!var %in% names(df_site)) stop("Variable not found on server.")
-    x <- df_site[[var]]
-    
-    if (is.numeric(x)) {
-      list(mean = mean(x, na.rm = TRUE),
-           sd   = sd(x, na.rm = TRUE),
-           n    = sum(!is.na(x)))
-    } else {
-      table(x, useNA = "ifany")
-    }
+  # Make dataset path relative to project root
+  if (!file.exists(data_path)) {
+    data_path <- file.path("..", data_path)
   }
   
-  server_logistic <- function(formula_str) {
-    # Note: server runs model internally; client never sees df_site
-    f <- as.formula(formula_str)
-    fit <- glm(f, data = df_site, family = binomial)
-    coefs <- summary(fit)$coefficients
-    list(
-      coefficients = coefs,
-      odds_ratios  = exp(coef(fit)),
-      n            = nrow(df_site)
-    )
+  df <- read.csv(data_path)
+  
+  if (nrow(df) < min_n) {
+    stop("Privacy violation: insufficient sample size.")
   }
   
-  # Return an object with "endpoints"
   list(
-    summary  = server_summary,
-    logistic = server_logistic
+    termnames = function(formula) {
+      .server_termnames(df, formula)
+    },
+    
+    grad_hess = function(formula, beta) {
+      .server_grad_hess(df, formula, beta)
+    },
+    
+    summary = function(varname) {
+      x <- df[[varname]]
+      
+      if (is.numeric(x)) {
+        return(list(
+          type = "numeric",
+          n = length(x),
+          sum = sum(x),
+          sumsq = sum(x^2)
+        ))
+      }
+      
+      if (is.factor(x) || is.character(x)) {
+        tab <- table(x)
+        tab[tab < min_cell] <- NA
+        
+        return(list(
+          type = "categorical",
+          counts = as.list(tab)
+        ))
+      }
+      
+      stop("Unsupported variable type.")
+    }
   )
 }
