@@ -6,7 +6,6 @@ library(jsonlite)
 
 create_http_server <- function(base_url) {
   
-  # Helper to POST JSON and parse JSON response
   post_json <- function(path, payload) {
     r <- POST(
       url = paste0(base_url, path),
@@ -24,18 +23,22 @@ create_http_server <- function(base_url) {
   
   list(
     termnames = function(formula) {
-      post_json("/termnames", list(formula = deparse(formula)))
+      # Make sure this is a character vector (not a list)
+      tn <- post_json("/termnames", list(formula = deparse(formula)))
+      as.character(unlist(tn))
     },
+    
     grad_hess = function(formula, beta) {
       res <- post_json("/grad_hess", list(formula = deparse(formula), beta = beta))
       
-      # httr parses matrices weirdly sometimes; force structure
+      # Force expected types
       res$grad <- as.numeric(res$grad)
       res$hess <- matrix(unlist(res$hess), nrow = length(res$grad), byrow = TRUE)
       res$n    <- as.integer(res$n)
       res$ll   <- as.numeric(res$ll)
       res
     },
+    
     summary = function(varname) {
       post_json("/summary", list(varname = varname))
     }
