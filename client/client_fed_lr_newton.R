@@ -1,5 +1,5 @@
 # client/client_fed_lr_newton.R
-# Federated Logistic Regression using dynamic server factory
+# Exact Federated Logistic Regression (Local Simulation)
 
 # ---- Load engine ----
 source(file.path("client", "fed_engine.R"))
@@ -26,14 +26,15 @@ for (i in 2:length(servers)) {
   stopifnot(identical(terms1, servers[[i]]$termnames(formula)))
 }
 
-# ---- Run federated Newton ----
+# ---- Run federated Newton (exact) ----
 fit_fed <- fed_logistic_newton(
   formula = formula,
   servers = servers,
-  max_iter = 30,
-  tol = 1e-6,
-  ridge = 1e-8,
-  verbose = TRUE
+  max_iter = 50,
+  tol_score = 1e-8,
+  tol_ll = 1e-10,
+  verbose = TRUE,
+  robust_cluster = FALSE
 )
 
 beta <- fit_fed$coefficients
@@ -52,7 +53,9 @@ results <- data.frame(
   CI_upper = exp(beta + 1.96 * se)
 )
 
-cat("\nFederated GLM Results:\n")
+cat("\n====================================\n")
+cat("Federated GLM Results (Exact MLE)\n")
+cat("====================================\n")
 print(round(results, 6))
 
 # ---- Optional pooled check (LOCAL ONLY) ----
@@ -64,3 +67,6 @@ print(coef(fit_pool))
 
 cat("\n--- Difference (federated - pooled) ---\n")
 print(beta - coef(fit_pool))
+
+cat("\nMax absolute difference:\n")
+print(max(abs(beta - coef(fit_pool))))

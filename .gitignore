@@ -16,8 +16,17 @@
 *.rds
 *.Rds
 
+# Generated federated site files
+server/data/swespine_sites/
+
+# Large raw data files (DO NOT UPLOAD)
+server/data/Cervical_Swespine_ZN.xlsx
+*.xlsx
+~$*.xlsx
+
 # Logs
 *.log
+*.tmp
 
 # Private / secrets (if you add later)
 .env

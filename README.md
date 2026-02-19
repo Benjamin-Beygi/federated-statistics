@@ -1,257 +1,273 @@
 # Federated Statistics Demo (R)
 
-### Privacy-Preserving Multi-Hospital Logistic Regression Infrastructure
+## Privacy-Preserving Multi-Hospital Statistical Infrastructure
 
 ------------------------------------------------------------------------
 
-## Overview
+## Executive Summary
 
-This project implements a **federated logistic regression framework in
-R**, simulating a multi-hospital research network where:
+This repository implements a **mathematically exact federated
+statistical framework in R**.\
+It simulates a multi-hospital research network where:
 
--   No patient-level data leaves the hospital
--   Only aggregated statistical quantities (gradient, Hessian,
-    log-likelihood) are transmitted
--   Centralized optimization reconstructs full maximum likelihood
-    estimates
--   Multiple inference regimes are supported:
-    -   Model-based (Fisher Information)
-    -   Cluster-robust (hospital-level sandwich)
-    -   Leave-one-hospital-out jackknife (small-G robust)
+-   **No patient-level data leaves the hospital**
+-   Only aggregated sufficient statistics are transmitted
+-   Centralized optimization reconstructs exact pooled estimators
+-   Multiple inference regimes are supported
+-   Results match pooled `glm()` / `lm()` to numerical precision
 
-The system runs entirely over HTTP using `plumber`, simulating real
-hospital servers.
-
-This repository demonstrates:
-
--   Mathematical validity (federated == pooled)
--   Technical feasibility (true process isolation)
--   GDPR-aligned privacy structure
--   Research-grade inference
--   Scalable infrastructure design
+This is not a toy mockup --- it is a research-grade foundation for
+privacy-aware multicenter modeling.
 
 ------------------------------------------------------------------------
 
-## Key Features
+# Core Capabilities
 
-### 1. True Federated Optimization
+## 1. Exact Federated Estimation
 
--   Damped Newton / IRLS
--   Monotone log-likelihood convergence
--   Line-search stabilization
--   No raw data transfer
+Supported models:
 
-### 2. Multi-Layer Inference
+-   Logistic regression (exact MLE via damped Newton / IRLS)
+-   Linear regression (exact OLS via sufficient statistics)
+-   Welch t-test
+-   Chi-square (2x2 exact reconstruction)
+-   Mean / variance / SD
 
--   Model-based standard errors
--   Cluster-robust SE (hospital clustering)
--   Leave-one-hospital-out jackknife (robust for small number of
-    hospitals)
+All federated results are numerically identical to centralized pooled
+analysis.
 
-### 3. Realistic Architecture
+------------------------------------------------------------------------
 
--   Separate R processes per hospital
+## 2. Multi-Layer Inference
+
+The framework supports:
+
+### Model-Based (Fisher Information)
+
+Standard GLM variance reconstruction.
+
+### Cluster-Robust (Hospital-Level Sandwich)
+
+Robust variance treating hospitals as clusters.
+
+### Leave-One-Hospital-Out Jackknife
+
+Small-G robust inference for limited number of hospitals.
+
+------------------------------------------------------------------------
+
+## 3. Architecture
+
+-   Independent R process per hospital
 -   HTTP communication via `plumber`
--   Background server orchestration using `callr`
--   One-command demo execution
-
-### 4. One-Command Execution
-
-Run:
-
-``` r
-source("demo/run_full_demo.R")
-```
-
-This: 1. Launches hospital A and B 2. Waits for servers to respond 3.
-Executes federated logistic regression 4. Prints all inference layers 5.
-Leaves servers running for inspection
+-   Background orchestration using `callr`
+-   Gradient + Hessian transport (no row-level transfer)
+-   Deterministic convergence with monotone log-likelihood stabilization
 
 ------------------------------------------------------------------------
 
-## Project Structure
+# Project Structure
 
     federated_statistics/
     │
     ├── client/
-    │   ├── fed_engine.R                 # Core federated optimizer
-    │   ├── http_server_adapter.R        # HTTP transport layer
-    │   ├── client_fed_lr_http.R         # HTTP-based federated execution
+    │   ├── fed_engine.R
+    │   ├── http_server_adapter.R
+    │   ├── client_fed_lr_http.R
     │
     ├── server/
-    │   ├── api_server.R                 # Plumber API (hospital node)
-    │   ├── server_fed_lr_functions.R    # Gradient/Hessian logic
-    │   ├── server_factory.R             # Server creation utilities
+    │   ├── api_server.R
+    │   ├── server_fed_lr_functions.R
+    │   ├── server_factory.R
     │   └── data/
     │       ├── site_A.csv
     │       └── site_B.csv
     │
     ├── demo/
-    │   └── run_full_demo.R              # One-command demo runner
+    │   ├── run_full_demo.R
+    │   └── run_swespine_victor_demo.R
     │
     ├── README.md
     └── federated_statistics.Rproj
 
 ------------------------------------------------------------------------
 
-## Statistical Model
+# Statistical Framework
 
-We fit:
+For logistic regression:
 
-    logit(P(Y=1)) = β0 + β1*age + β2*sex + β3*x1 + β4*x2B + β5*x2C
+    logit(P(Y=1)) = Xβ
 
-Federated updates use:
+Each hospital computes locally:
 
 -   Gradient: Xᵀ(y − p)
 -   Hessian: −XᵀWX
+-   Log-likelihood
+-   Sample size
 
-Aggregated across hospitals.
+The central node aggregates:
 
-------------------------------------------------------------------------
+    Σ gradients
+    Σ Hessians
+    Σ log-likelihood
 
-## Inference Methods
+Newton updates reconstruct the exact pooled MLE.
 
-### 1. Model-Based (Fisher)
-
-Assumes independent observations.
-
-### 2. Cluster-Robust
-
-Hospitals treated as clusters.
-
-Correct when: - Large number of hospitals (G → ∞)
-
-### 3. Jackknife (Small-G Robust)
-
-Leave-one-hospital-out refitting.
-
-Recommended when: - G \< 10 hospitals
+No patient-level data is transmitted.
 
 ------------------------------------------------------------------------
 
-## Mathematical Validation
+# Mathematical Validation
 
-The federated solution matches pooled `glm()` results to numerical
-precision.
+The federated estimators satisfy:
 
-This verifies correctness of:
+    β_federated ≡ β_pooled  (within floating-point tolerance)
 
--   Optimization logic
--   Transport layer
--   Aggregation
--   Variance reconstruction
+Demonstrated equivalence includes:
 
-------------------------------------------------------------------------
+-   Logistic regression coefficients
+-   Linear regression coefficients
+-   Welch t-test statistics
+-   Chi-square statistics
+-   Means and standard deviations
 
-## Privacy Model
-
-What leaves the hospital: - Gradient vector - Hessian matrix -
-Log-likelihood scalar - Sample size
-
-What never leaves: - Patient rows - Raw predictors - Outcome data
-
-This structure aligns with: - GDPR constraints - Multicenter governance
-requirements - DataSHIELD philosophy
+Equivalence is typically exact to 1e-12 precision.
 
 ------------------------------------------------------------------------
 
-## Horizon Goals
+# Privacy Model
 
-### Short-Term
+What leaves each hospital:
 
--   Simulate K-hospital scenarios (G = 5, 10, 20)
--   Compare inference methods (coverage, bias)
--   Produce publication-quality simulation study
+-   Gradient vector
+-   Hessian matrix
+-   Log-likelihood scalar
+-   Sufficient statistics (XtX, Xty, counts)
 
-### Medium-Term
+What never leaves:
 
--   Align architecture with DataSHIELD / Opal
--   Replace HTTP layer with secure VPN/TLS deployment
--   Add authentication and audit logging
+-   Individual rows
+-   Raw predictors
+-   Outcome vectors
+-   Identifiable patient data
 
-### Advanced Research Directions
+This aligns with:
 
--   Federated mixed-effects models
--   Random intercept models for hospital heterogeneity
--   Survival analysis (Cox PH)
--   Distributed penalized regression
--   Secure aggregation protocols
-
-------------------------------------------------------------------------
-
-## Strategic Vision
-
-This project is positioned at the intersection of:
-
--   Clinical multicenter collaboration
--   Statistical methodology
--   Federated learning infrastructure
--   Privacy-preserving data science
-
-Potential use cases:
-
--   European neurosurgical registries
--   Multicenter outcome modeling
--   Cross-hospital benchmarking
--   Research networks under strict governance
+-   GDPR constraints
+-   Multicenter governance frameworks
+-   DataSHIELD-style philosophy
+-   Federated learning principles
 
 ------------------------------------------------------------------------
 
-## Requirements
+# Swespine Demonstration
+
+The repository includes a large-scale multicenter registry simulation:
+
+    source("demo/run_swespine_victor_demo.R")
+
+Demonstrates:
+
+-   26 simulated hospitals
+-   Exact central vs federated equivalence
+-   Logistic regression
+-   Linear regression
+-   Welch t-test
+-   Chi-square (Yates-corrected)
+
+All results match pooled analysis exactly.
+
+------------------------------------------------------------------------
+
+# Running the Demo
+
+From project root:
+
+    source("demo/run_full_demo.R")
+
+To stop background hospital processes:
+
+    hospA$kill()
+    hospB$kill()
+
+------------------------------------------------------------------------
+
+# Installation
+
+Requirements:
 
 -   R \>= 4.0
 -   plumber
 -   httr
 -   callr
--   stats
 
 Install dependencies:
 
-``` r
-install.packages(c("plumber", "httr", "callr"))
-```
+    install.packages(c("plumber", "httr", "callr"))
 
 ------------------------------------------------------------------------
 
-## Running the Demo
+# Research Applications
 
-From project root:
+This framework supports:
 
-``` r
-source("demo/run_full_demo.R")
-```
-
-To stop servers afterwards:
-
-``` r
-hospA$kill()
-hospB$kill()
-```
+-   Multicenter outcome modeling
+-   Cross-hospital benchmarking
+-   Registry-based research networks
+-   Privacy-aware European collaborations
+-   Federated clinical infrastructure development
 
 ------------------------------------------------------------------------
 
-## License
+# Forward Roadmap
+
+Short-Term: - K-hospital simulation studies - Coverage evaluation of
+cluster-robust vs jackknife - Automated equivalence validation
+
+Medium-Term: - Secure TLS deployment - Authentication + audit logging -
+DataSHIELD / Opal alignment
+
+Advanced: - Federated mixed-effects models - Random intercept models -
+Survival analysis (Cox PH) - Penalized regression - Secure aggregation
+protocols
+
+------------------------------------------------------------------------
+
+# Strategic Positioning
+
+This project sits at the intersection of:
+
+-   Clinical registry science
+-   Statistical methodology
+-   Federated optimization
+-   Privacy-preserving infrastructure
+
+It demonstrates that exact multicenter modeling is technically feasible
+without centralizing patient data.
+
+------------------------------------------------------------------------
+
+# License
 
 MIT License
 
 ------------------------------------------------------------------------
 
-## Author
+# Author
 
-Benjamin --- Federated Clinical Statistics Infrastructure Project
+Benjamin\
+Federated Clinical Statistics Infrastructure Project
 
 ------------------------------------------------------------------------
 
-## Closing Statement
+# Closing Statement
 
-This repository demonstrates that:
+Federated clinical modeling can be:
 
--   Federated clinical modeling is mathematically exact.
--   Distributed inference is achievable with correct variance
-    reconstruction.
--   Small-cluster robustness can be addressed via jackknife methods.
--   Multicenter collaboration can be technically feasible without data
-    pooling.
+-   Mathematically exact\
+-   Statistically robust\
+-   Privacy-aligned\
+-   Infrastructure-scalable
 
-This is not a toy example --- it is a foundation for scalable,
-privacy-aware clinical research networks.
+This repository is a foundation for building real-world, GDPR-compliant,
+multicenter research networks.

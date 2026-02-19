@@ -1,21 +1,26 @@
 # server/server_factory.R
+# ==========================================================
+# Server factory: builds a "site server" interface
+# ==========================================================
 
-# Load helper functions (relative to /server)
-source("server_fed_lr_functions.R")
+source("server/server_fed_lr_functions.R")
 
 create_server <- function(data_path,
-                          min_n = 20,
-                          min_cell = 5) {
+                          min_n = 20) {
   
-  # Make dataset path relative to project root
   if (!file.exists(data_path)) {
     data_path <- file.path("..", data_path)
   }
+  if (!file.exists(data_path)) stop("Data file not found: ", data_path)
   
-  df <- read.csv(data_path)
+  df <- read.csv(
+    data_path,
+    stringsAsFactors = FALSE,
+    na.strings = c("", "NA", "NaN", "NULL")
+  )
   
   if (nrow(df) < min_n) {
-    stop("Privacy violation: insufficient sample size.")
+    stop("Privacy violation: insufficient sample size (n < min_n).")
   }
   
   list(
@@ -27,29 +32,21 @@ create_server <- function(data_path,
       .server_grad_hess(df, formula, beta)
     },
     
-    summary = function(varname) {
-      x <- df[[varname]]
-      
-      if (is.numeric(x)) {
-        return(list(
-          type = "numeric",
-          n = length(x),
-          sum = sum(x),
-          sumsq = sum(x^2)
-        ))
-      }
-      
-      if (is.factor(x) || is.character(x)) {
-        tab <- table(x)
-        tab[tab < min_cell] <- NA
-        
-        return(list(
-          type = "categorical",
-          counts = as.list(tab)
-        ))
-      }
-      
-      stop("Unsupported variable type.")
+    summary_numeric = function(varname) {
+      .server_numeric_summary(df, varname)
+    },
+    
+    group_summaries = function(varname, groupvar) {
+      .server_group_numeric_summary(df, varname, groupvar)
+    },
+    
+    lm_suffstats = function(formula) {
+      .server_lm_suffstats(df, formula)
+    },
+    
+    # NEW: binary 2x2 counts
+    counts_2x2 = function(xvar, yvar) {
+      .server_2x2_counts(df, xvar, yvar)
     }
   )
 }
