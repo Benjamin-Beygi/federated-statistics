@@ -1,5 +1,7 @@
 # client/http_server_adapter.R
+# -----------------------------------------------------------------------------
 # Wrap a remote Plumber server into the same interface expected by fed_engine.R
+# -----------------------------------------------------------------------------
 
 library(httr)
 library(jsonlite)

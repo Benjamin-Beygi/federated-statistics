@@ -1,7 +1,7 @@
 # server/server_factory.R
-# ==========================================================
+# --------------------------------------------------------
 # Server factory: builds a "site server" interface
-# ==========================================================
+# --------------------------------------------------------
 
 source("server/server_fed_lr_functions.R")
 
@@ -44,7 +44,7 @@ create_server <- function(data_path,
       .server_lm_suffstats(df, formula)
     },
     
-    # NEW: binary 2x2 counts
+    # binary 2x2 counts
     counts_2x2 = function(xvar, yvar) {
       .server_2x2_counts(df, xvar, yvar)
     }

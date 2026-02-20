@@ -41,7 +41,7 @@ cat("sd =", sd_fed, "\n")
 
 
 # ----------------------------
-# CATEGORICAL EXAMPLE
+# Categorical example
 # ----------------------------
 varname <- "sex"
 

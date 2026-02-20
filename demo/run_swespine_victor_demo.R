@@ -10,7 +10,7 @@
 # - Linear regression: NRS arm 12m ~ age + sexM
 # - Logistic regression: satisfied 12m ~ age + sexM
 #
-# HARDENING:
+# Hardening for exact equivalence:
 # - No factor predictors in models (sexM numeric)
 # - Chi-square computed from exact binary 2x2 counts (no string drift)
 # ==========================================================
@@ -104,7 +104,7 @@ fed_welch_t <- function(servers, varname, groupvar, g1, g2) {
   list(n1=n1, n2=n2, m1=m1, m2=m2, t=tval, df=df, p=p)
 }
 
-# NEW: federated chi-square from 2x2 counts
+# federated chi-square from 2x2 counts
 fed_chisq_2x2 <- function(servers, xvar, yvar, correct = TRUE) {
   n00 <- n01 <- n10 <- n11 <- 0
   N <- 0
@@ -369,3 +369,139 @@ cat("Fed     X^2:", chisq_f$statistic, "\n")
 cat("Diff:", chisq_f$statistic - unname(chisq_c$statistic), "\n")
 
 cat("\nDone.\n")
+
+
+
+
+
+
+
+
+
+# ==========================================================
+# Visual comparison tables (gt)
+# ==========================================================
+
+suppressPackageStartupMessages({
+  library(gt)
+  library(dplyr)
+})
+
+fmt <- function(x) sprintf("%.6f", x)
+
+# ==========================================================
+# linear regression table
+# ==========================================================
+
+lm_c_coef <- summary(lm_c)$coefficients
+lm_f_coef <- cbind(
+  Estimate = lm_f$beta,
+  StdError = lm_f$se,
+  t = lm_f$t,
+  p = lm_f$p
+)
+
+terms_lm <- intersect(rownames(lm_c_coef), rownames(lm_f_coef))
+
+lm_table <- tibble(
+  Term = terms_lm,
+  
+  `Central\nEstimate` = lm_c_coef[terms_lm, "Estimate"],
+  `Federated\nEstimate` = lm_f_coef[terms_lm, "Estimate"],
+  `Abs Diff` = abs(lm_c_coef[terms_lm, "Estimate"] -
+                     lm_f_coef[terms_lm, "Estimate"]),
+  
+  `Central\nSE` = lm_c_coef[terms_lm, "Std. Error"],
+  `Federated\nSE` = lm_f_coef[terms_lm, "StdError"],
+  
+  `Central\np` = lm_c_coef[terms_lm, "Pr(>|t|)"],
+  `Federated\np` = lm_f_coef[terms_lm, "p"]
+)
+
+lm_table_gt <-
+  lm_table %>%
+  gt() %>%
+  fmt_number(columns = -Term, decimals = 6) %>%
+  tab_header(
+    title = "Linear Regression Comparison",
+    subtitle = "Outcome: NRS arm pain at 12 months"
+  ) %>%
+  cols_label(
+    Term = "Term"
+  ) %>%
+  tab_spanner(
+    label = "Estimates",
+    columns = c(`Central\nEstimate`, `Federated\nEstimate`, `Abs Diff`)
+  ) %>%
+  tab_spanner(
+    label = "Standard Errors",
+    columns = c(`Central\nSE`, `Federated\nSE`)
+  ) %>%
+  tab_spanner(
+    label = "p-values",
+    columns = c(`Central\np`, `Federated\np`)
+  ) %>%
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_column_labels()
+  )
+
+print(lm_table_gt)
+
+
+
+# ==========================================================
+# logistic regression table
+# ==========================================================
+
+glm_c_coef <- summary(glm_c)$coefficients
+glm_f_coef <- cbind(
+  Estimate = beta_f,
+  StdError = se_f,
+  z = beta_f / se_f,
+  p = 2 * (1 - pnorm(abs(beta_f / se_f)))
+)
+
+terms_glm <- intersect(rownames(glm_c_coef), rownames(glm_f_coef))
+
+glm_table <- tibble(
+  Term = terms_glm,
+  
+  `Central\nLog-OR` = glm_c_coef[terms_glm, "Estimate"],
+  `Federated\nLog-OR` = glm_f_coef[terms_glm, "Estimate"],
+  `Abs Diff` = abs(glm_c_coef[terms_glm, "Estimate"] -
+                     glm_f_coef[terms_glm, "Estimate"]),
+  
+  `Central\nSE` = glm_c_coef[terms_glm, "Std. Error"],
+  `Federated\nSE` = glm_f_coef[terms_glm, "StdError"],
+  
+  `Central\np` = glm_c_coef[terms_glm, "Pr(>|z|)"],
+  `Federated\np` = glm_f_coef[terms_glm, "p"]
+)
+
+glm_table_gt <-
+  glm_table %>%
+  gt() %>%
+  fmt_number(columns = -Term, decimals = 6) %>%
+  tab_header(
+    title = "Logistic Regression Comparison",
+    subtitle = "Outcome: Satisfaction at 12 months"
+  ) %>%
+  tab_spanner(
+    label = "Log-Odds Ratios",
+    columns = c(`Central\nLog-OR`, `Federated\nLog-OR`, `Abs Diff`)
+  ) %>%
+  tab_spanner(
+    label = "Standard Errors",
+    columns = c(`Central\nSE`, `Federated\nSE`)
+  ) %>%
+  tab_spanner(
+    label = "p-values",
+    columns = c(`Central\np`, `Federated\np`)
+  ) %>%
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_column_labels()
+  )
+
+print(glm_table_gt)

@@ -1,5 +1,5 @@
 # server/server_fed_lr_functions.R
-# ==========================================================
+# --------------------------------------------------------
 # Server-side statistical primitives (no raw data leaves site)
 # Hardened for exact equivalence:
 # - Logistic regression: gradient + Hessian + log-likelihood
@@ -7,7 +7,7 @@
 # - Numeric summary
 # - Grouped numeric summaries (Welch t-test)
 # - 2x2 counts for chi-square (binary x binary)  <-- NEW, SAFE
-# ==========================================================
+# --------------------------------------------------------
 
 .build_design <- function(data, formula) {
   mf <- model.frame(formula, data = data, na.action = na.omit)
@@ -16,7 +16,9 @@
   list(X = X, y = y)
 }
 
-# ---------- Logistic regression building block ----------
+# --------------------------------------------------------
+# Logistic regression building block
+# --------------------------------------------------------
 .server_grad_hess <- function(data, formula, beta) {
   des <- .build_design(data, formula)
   X <- des$X
@@ -40,7 +42,9 @@
   colnames(des$X)
 }
 
-# ---------- Linear regression sufficient statistics ----------
+# --------------------------------------------------------
+# Linear regression sufficient statistics
+# --------------------------------------------------------
 .server_lm_suffstats <- function(data, formula) {
   des <- .build_design(data, formula)
   X <- des$X
@@ -59,7 +63,9 @@
   )
 }
 
-# ---------- Numeric summary ----------
+# --------------------------------------------------------
+# Numeric summary
+# --------------------------------------------------------
 .server_numeric_summary <- function(data, varname) {
   x <- data[[varname]]
   if (is.null(x)) stop(paste("Unknown variable:", varname))
@@ -73,7 +79,9 @@
   )
 }
 
-# ---------- Grouped numeric summaries ----------
+# --------------------------------------------------------
+# Grouped numeric summaries 
+# --------------------------------------------------------
 # Returns list(level -> {n,sum,sumsq})
 .server_group_numeric_summary <- function(data, varname, groupvar) {
   x <- data[[varname]]
@@ -105,7 +113,9 @@
   list(type="group_numeric", levels=levs, stats=stats)
 }
 
-# ---------- NEW: exact 2x2 counts for binary x binary ----------
+# --------------------------------------------------------
+# Exact 2x2 counts for binary x binary
+# --------------------------------------------------------
 # Input variables must be binary-coded 0/1 (numeric or logical-like).
 # Returns counts n00, n01, n10, n11 for (x, y) in {0,1}^2 with NA removed.
 .server_2x2_counts <- function(data, xvar, yvar) {

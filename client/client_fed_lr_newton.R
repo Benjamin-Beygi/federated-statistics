@@ -1,15 +1,21 @@
 # client/client_fed_lr_newton.R
 # Exact Federated Logistic Regression (Local Simulation)
 
-# ---- Load engine ----
+# --------------------------------------------------------
+# Load engine
+# --------------------------------------------------------
 source(file.path("client", "fed_engine.R"))
 
-# ---- Load server factory ----
+# --------------------------------------------------------
+# Load server factory
+# --------------------------------------------------------
 source(file.path("server", "server_factory.R"))
 
 cat("Client starting servers via factory...\n")
 
-# ---- Create servers dynamically from data files ----
+# --------------------------------------------------------
+# Create servers dynamically from data files
+# --------------------------------------------------------
 servers <- list(
   create_server(file.path("server", "data", "site_A.csv")),
   create_server(file.path("server", "data", "site_B.csv"))
@@ -17,16 +23,22 @@ servers <- list(
 
 cat("Number of servers:", length(servers), "\n")
 
-# ---- Specify model ----
+# --------------------------------------------------------
+# Specify model
+# --------------------------------------------------------
 formula <- y ~ age + sex + x1 + x2
 
-# ---- Safety check: identical term ordering ----
+# --------------------------------------------------------
+# Safety check: identical term ordering
+# --------------------------------------------------------
 terms1 <- servers[[1]]$termnames(formula)
 for (i in 2:length(servers)) {
   stopifnot(identical(terms1, servers[[i]]$termnames(formula)))
 }
 
-# ---- Run federated Newton (exact) ----
+# --------------------------------------------------------
+# Run federated Newton (exact)
+# --------------------------------------------------------
 fit_fed <- fed_logistic_newton(
   formula = formula,
   servers = servers,
@@ -58,7 +70,9 @@ cat("Federated GLM Results (Exact MLE)\n")
 cat("====================================\n")
 print(round(results, 6))
 
-# ---- Optional pooled check (LOCAL ONLY) ----
+# --------------------------------------------------------
+# Optional pooled check (LOCAL ONLY)
+# --------------------------------------------------------
 df_all <- read.csv(file.path("server", "data", "demo_dataset.csv"))
 fit_pool <- glm(formula, data = df_all, family = binomial)
 
